@@ -1,0 +1,55 @@
+apply from: 'dependencies/ext.gradle'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:7.0.3"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.6.0"
+        classpath 'com.google.gms:google-services:4.3.10'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.8.0'
+        classpath 'com.google.firebase:firebase-appdistribution-gradle:2.2.0'
+        classpath 'org.json:json:20210307'
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+import org.json.JSONObject
+
+// create release files
+task setReleaseMessage {
+    doLast {
+        def file = file('release_message.json')
+        if (!file.exists()) {
+            return
+        }
+
+        def json = new JSONObject(file.text)
+
+        def extText = 'ext {\n'
+        extText += '  appVersionCode = '
+        extText += json.code
+        extText += '\n'
+        extText += '  appVersionName = \''
+        extText += json.name
+        extText += '\'\n'
+        extText += '}'
+
+        def extFile = new FileWriter('dependencies/ext.gradle')
+        extFile.write(extText)
+        extFile.close()
+
+        def enFile = new FileWriter('app/src/main/play/release-notes/en-US/default.txt')
+        enFile.write(json.english)
+        enFile.close()
+
+        def jaFile = new FileWriter('app/src/main/play/release-notes/ja-JP/default.txt')
+        jaFile.write(json.japanese)
+        jaFile.close()
+    }
+}

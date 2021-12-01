@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="net.ambitious.android.proximitysensor" >
+
+    <!-- 起動時実施 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 画面を点ける -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- For Fablic -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- API Level 28 以上でバックグラウンド起動に必要 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme"
+        tools:ignore="GoogleAppIndexingWarning">
+        <activity
+                android:name=".MainActivity"
+                android:label="@string/app_name"
+                android:finishOnCloseSystemDialogs="true"
+                android:launchMode="singleTask"
+                android:screenOrientation="portrait"
+                android:theme="@style/AppTheme.NoActionBar"
+                android:configChanges="orientation"
+                android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- For Fablic -->
+        <meta-data
+                android:name="io.fabric.ApiKey"
+                android:value="4cbc8afb744346ee252a58d717d18561fe1e0ad2" />
+
+        <!-- 広告ID抽出中止 -->
+        <meta-data
+            android:name="google_analytics_adid_collection_enabled"
+            android:value="false" />
+
+        <!-- 常駐エリアからタップで画面オフ -->
+        <activity
+                android:name=".SleepActivity"
+                android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- 近接センサー監視 -->
+        <service android:name=".services.SensorService"
+                 android:permission="proximity_sensor_permission"
+                 android:process=":remote"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.SCREEN_ON" />
+                <action android:name="android.intent.action.SCREEN_OFF" />
+            </intent-filter>
+        </service>
+
+        <!-- 起動時レシーバー -->
+        <receiver
+            android:name=".receiver.StartupReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- パーミッション取得 -->
+        <receiver
+            android:name=".receiver.LockDeviceAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data android:name="android.app.device_admin"
+                       android:resource="@xml/polici" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- ダブルタップでのロック -->
+        <receiver
+            android:name=".receiver.DoubleTapBroadCastReceiver"
+            android:process=":double_remote"
+            android:exported="false"/>
+    </application>
+</manifest>

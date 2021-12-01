@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- タイトル -->
+    <string name="app_name">近接センサー スイッチ</string>
+
+    <!-- 画面表示 -->
+    <string name="enable_text">近接センサーを起動する</string>
+    <string name="sleep_notify">通知エリアから画面オフにする</string>
+    <string name="sleep_double_tap">通知エリアをダブルタップで画面オフにする</string>
+    <string name="uninstall_button">アンインストールする\n(管理者権限も削除します)</string>
+    <string name="channel_title">近接センサー スイッチの通知チャンネル</string>
+    <string name="channel_description">ための通知チャンネルです。</string>
+
+    <!-- 通知エリア -->
+    <string name="notification_double_tap">ダブルタップで画面オフ</string>
+    <string name="notification_main">タップで画面オフ</string>
+    <string name="notification_sub">近接センサー起動中</string>
+
+    <!-- 起動不可ダイアログ -->
+    <string name="activation_impossible_title">端末未対応</string>
+    <string name="activation_impossible_message"><!--
+        -->大変申し訳ありませんが、お使いの端末では当アプリは起動できません…\n<!--
+        -->残念ですが、アンインストールをお願い致します。。。<!--
+ --></string>
+    <string name="activation_impossible_button">アンインストール</string>
+
+    <!-- 管理者権限を取れなかった場合のエラー -->
+    <string name="sleep_activity_error_title">管理者認証失敗</string>
+    <string name="sleep_activity_error_message"><!--
+        -->管理者認証に失敗しました。\n<!--
+        -->有効画面でキャンセルされた場合、アプリ再起動後に再設定が可能になります。\n<!--
+        -->そうでない場合、お手数ですがお問い合わせをお願い致します。。<!--
+ --></string>
+    <string name="sleep_activity_error_ok">OK</string>
+</resources>
