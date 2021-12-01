@@ -32,6 +32,13 @@ android {
             minifyEnabled true
             signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            firebaseAppDistribution {
+                artifactType = "APK"
+                artifactPath = "app/build/outputs/apk/release/app-release.apk"
+                releaseNotesFile = "dependencies/app-distribution-note.txt"
+                groups = "own"
+            }
+
         }
     }
 
