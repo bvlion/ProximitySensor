@@ -18,3 +18,4 @@ google-services.json
 dependencies
 !dependencies/ext.gradle
 google-play-service.json
+app/release/
