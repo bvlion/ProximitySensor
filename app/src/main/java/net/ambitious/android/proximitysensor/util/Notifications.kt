@@ -10,7 +10,6 @@ import android.content.Intent
 import android.graphics.drawable.BitmapDrawable
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.res.ResourcesCompat
 import net.ambitious.android.proximitysensor.MainActivity
 import net.ambitious.android.proximitysensor.R
@@ -25,7 +24,7 @@ object Notifications {
    */
   @SuppressLint("LaunchActivityFromNotification")
   fun getOngoingShowDoubleTapNotification(context: Context): Notification {
-    createChannel(context, NotificationManagerCompat.IMPORTANCE_MAX, R.string.sleep_double_tap)
+    createChannel(context)
 
     val contextIntent =
       PendingIntent.getBroadcast(
@@ -61,7 +60,7 @@ object Notifications {
    * @return Notification
    */
   fun getOngoingShowNotification(context: Context): Notification {
-    createChannel(context, NotificationManagerCompat.IMPORTANCE_HIGH, R.string.sleep_notify)
+    createChannel(context)
 
     val contextIntent =
       PendingIntent.getActivity(context, 0, Intent(context, SleepActivity::class.java), getPendingIntentFlag())
@@ -88,7 +87,7 @@ object Notifications {
    * @return Notification
    */
   fun getOngoingHideNotification(context: Context): Notification {
-    createChannel(context, NotificationManagerCompat.IMPORTANCE_NONE, null)
+    createChannel(context)
 
     val contextIntent =
       PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java), getPendingIntentFlag())
@@ -113,25 +112,25 @@ object Notifications {
   /**
    * 表示のためのチャンネルを作成する（Oreo対応）
    * @param context Context
-   * @param importance 表示優先度
-   * @param channelDescriptionId 詳細のstringsのID
    */
-  private fun createChannel(context: Context, importance: Int, channelDescriptionId: Int?) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      val notificationManager =
-        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-      notificationManager.deleteNotificationChannel(Util.NOTIFICATION_CHANNEL_ID)
-      val channel = NotificationChannel(
-        Util.NOTIFICATION_CHANNEL_ID,
-        context.getString(R.string.channel_title),
-        importance
-      )
-      if (channelDescriptionId != null) {
-        channel.description =
-          context.getString(channelDescriptionId) + context.getString(R.string.channel_description)
-      }
-      notificationManager.createNotificationChannel(channel)
+  private fun createChannel(context: Context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      return
     }
+
+    val notificationManager =
+      context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    if (notificationManager.getNotificationChannel(Util.NOTIFICATION_CHANNEL_ID) != null) {
+      return
+    }
+
+    val channel = NotificationChannel(
+      Util.NOTIFICATION_CHANNEL_ID,
+      context.getString(R.string.channel_title),
+      NotificationManager.IMPORTANCE_NONE
+    )
+    channel.description = context.getString(R.string.channel_description)
+    notificationManager.createNotificationChannel(channel)
   }
 
   private fun getPendingIntentFlag() =

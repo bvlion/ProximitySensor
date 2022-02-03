@@ -1,6 +1,5 @@
 package net.ambitious.android.proximitysensor.services
 
-import android.annotation.SuppressLint
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -11,6 +10,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import net.ambitious.android.proximitysensor.util.*
 
 /**
@@ -21,25 +22,25 @@ import net.ambitious.android.proximitysensor.util.*
 class SensorService : Service(), SensorEventListener {
 
   /** SensorManager */
-  private lateinit var sensorManager: SensorManager
+  private val sensorManager: SensorManager by lazy {
+    getSystemService(Context.SENSOR_SERVICE) as SensorManager
+  }
 
   /** 初回起動フラグ（sensorManager.registerListenerでonSensorChangedが走ってしまう対策） */
   private var firstActive = false
 
-  /** 対象センサー（TYPE_PROXIMITY） */
-  private lateinit var sensor: Sensor
-
   /** Activityからの切り替えMessenger */
   private var messenger: Messenger? = null
 
-  /** 起動フラグ */
-  private var isActive = false
+  /** 対象センサー（TYPE_PROXIMITY） */
+  private val sensor: Sensor by lazy {
+    sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+  }
 
-  /** 常駐フラグ */
-  private var isNotify = false
+  private val dataStore by lazy { Util.getDataStore(this) }
 
-  /** ダブルタップでロックフラグ */
-  private var isDoubleTapLock = false
+  private val job = SupervisorJob()
+  private val scope = CoroutineScope(Dispatchers.Main + job)
 
   /** 画面オフBroadcastReceiver */
   private val offReceiver = object : BroadcastReceiver() {
@@ -48,21 +49,6 @@ class SensorService : Service(), SensorEventListener {
       sensorManager.registerListener(this@SensorService, sensor, SensorManager.SENSOR_DELAY_UI)
       firstActive = true
     }
-  }
-
-  /** @override Service.onCreate */
-  override fun onCreate() {
-    // SensorManager作成
-    sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    // Sensor取得
-    sensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-
-    val pref = getSharedPreferences(packageName, Context.MODE_PRIVATE)
-
-    // 初期作成時はSharedPreferencesより設定
-    isActive = pref.getBoolean(Util.ENABLE_SWITCH_PREF, false)
-    isNotify = pref.getBoolean(Util.ENABLE_NOTIFY_PREF, false)
-    isDoubleTapLock = pref.getBoolean(Util.SLEEP_DOUBLE_TAP_PREF, false)
   }
 
   /** @override Service.onStartCommand */
@@ -74,12 +60,13 @@ class SensorService : Service(), SensorEventListener {
       else -> sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_UI)
     }
 
-    // Notification切り替え
-    startForegroundNotification()
-
-    // インストール時など自動的に作成されてしまうので、その場合は止める
-    when {
-      !isActive -> Handler(Looper.getMainLooper()).post { stopSelf() }
+    scope.launch {
+      // インストール時など自動的に作成されてしまうので、その場合は止める
+      dataStore.isEnableSensor.collect {
+        if (!it) {
+          Handler(Looper.getMainLooper()).post { stopSelf() }
+        }
+      }
     }
 
     // インスタンスを使いまわして再起動
@@ -94,15 +81,10 @@ class SensorService : Service(), SensorEventListener {
     } catch (e: IllegalArgumentException) {
       // 初回起動時にエラーが発生する場合がある
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-      stopForeground(STOP_FOREGROUND_REMOVE)
-    } else {
-      stopForeground(true)
-    }
+    stopForeground()
   }
 
   /** @override SensorEventListener.onSensorChanged */
-  @SuppressLint("InvalidWakeLockTag")
   override fun onSensorChanged(event: SensorEvent) {
     // 画面オフのBroadcastReceiverから初回呼び出しされた場合のみ、何もしない
     if (firstActive) {
@@ -128,46 +110,68 @@ class SensorService : Service(), SensorEventListener {
   override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) = Unit
 
   /** @override Service.onBind */
-  override fun onBind(intent: Intent): IBinder = messenger?.binder
-      ?: Messenger(ServiceHandler()).also { messenger = it }.binder
+  override fun onBind(intent: Intent): IBinder = messenger?.binder ?: Messenger(
+    ServiceHandler {
+      scope.launch {
+        startForegroundNotification(
+          it.isEnableSensor,
+          it.isEnableNotifyLock,
+          it.isEnableSleepDoubleTapLock
+        )
+      }
+    }
+  ).also { messenger = it }.binder
+
+  /** 条件に応じてNotificationを表示する */
+  private fun startForegroundNotification(
+    isActive: Boolean, isNotifyLock: Boolean, isDoubleTapLock: Boolean
+  ) {
+    if (isActive) {
+      if (isNotifyLock) {
+        if (isDoubleTapLock) {
+          startForeground(
+            Util.ONGOING_NOTIFICATION_ID,
+            Notifications.getOngoingShowDoubleTapNotification(applicationContext)
+          )
+        } else {
+          startForeground(
+            Util.ONGOING_NOTIFICATION_ID,
+            Notifications.getOngoingShowNotification(applicationContext)
+          )
+        }
+      } else {
+        startForeground(
+          Util.ONGOING_NOTIFICATION_ID,
+          Notifications.getOngoingHideNotification(applicationContext)
+        )
+      }
+    } else {
+      stopForeground()
+    }
+  }
+
+  private fun stopForeground() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      stopForeground(STOP_FOREGROUND_REMOVE)
+    } else {
+      stopForeground(true)
+    }
+    stopSelf()
+  }
 
   /** Activityからのメッセージ受信 */
-  @SuppressLint("HandlerLeak")
-  private inner class ServiceHandler : Handler(Looper.getMainLooper()) {
-    /** @override Handler.handleMessage */
+  private class ServiceHandler(
+    private val function: (setting : Util.SettingModel) -> Unit
+  ) : Handler(Looper.getMainLooper()) {
     override fun handleMessage(msg: Message) {
       when (msg.what) {
-          Util.ENABLE_NOTIFY_TYPE, Util.ENABLE_SWITCH_TYPE, Util.SLEEP_DOUBLE_TAP_TYPE -> {
-              val bundle = msg.obj as Bundle
-              when (msg.what) {
-                  Util.ENABLE_NOTIFY_TYPE -> isNotify = bundle.getBoolean(Util.MESSENGER_BUNDLE_KEY)
-                  Util.ENABLE_SWITCH_TYPE -> isActive = bundle.getBoolean(Util.MESSENGER_BUNDLE_KEY)
-                  Util.SLEEP_DOUBLE_TAP_TYPE -> isDoubleTapLock = bundle.getBoolean(Util.MESSENGER_BUNDLE_KEY)
-              }
-              startForegroundNotification()
-          }
+        Util.MESSENGER_BUNDLE_WHAT ->
+          function(
+            (msg.obj as Bundle).getSerializable(Util.MESSENGER_BUNDLE_KEY)
+                    as? Util.SettingModel ?: return
+          )
         else -> super.handleMessage(msg)
       }
     }
   }
-
-  /** 条件に応じてNotificationを表示する */
-  private fun startForegroundNotification() =
-      if (isActive) {
-        if (isNotify) {
-          if (isDoubleTapLock) {
-            startForeground(Util.ONGOING_NOTIFICATION_ID, Notifications.getOngoingShowDoubleTapNotification(applicationContext))
-          } else {
-            startForeground(Util.ONGOING_NOTIFICATION_ID, Notifications.getOngoingShowNotification(applicationContext))
-          }
-        } else {
-          startForeground(Util.ONGOING_NOTIFICATION_ID, Notifications.getOngoingHideNotification(applicationContext))
-        }
-      } else {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-          stopForeground(STOP_FOREGROUND_REMOVE)
-        } else {
-          stopForeground(true)
-        }
-      }
 }

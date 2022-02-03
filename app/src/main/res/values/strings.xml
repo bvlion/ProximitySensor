@@ -7,9 +7,9 @@
     <string name="enable_text">近接センサーを起動する</string>
     <string name="sleep_notify">通知エリアから画面オフにする</string>
     <string name="sleep_double_tap">通知エリアをダブルタップで画面オフにする</string>
-    <string name="uninstall_button">アンインストールする\n(管理者権限も削除します)</string>
+    <string name="uninstall_button">管理者権限を削除する</string>
     <string name="channel_title">近接センサー スイッチの通知チャンネル</string>
-    <string name="channel_description">ための通知チャンネルです。</string>
+    <string name="channel_description">近接センサーを起動させておくための通知チャンネルです。</string>
 
     <!-- 通知エリア -->
     <string name="notification_double_tap">ダブルタップで画面オフ</string>
