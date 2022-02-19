@@ -1,14 +1,16 @@
 package net.ambitious.android.proximitysensor.receiver
 
-import android.app.Activity
 import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import net.ambitious.android.proximitysensor.util.Util
-import rx.Observable
-import rx.android.schedulers.AndroidSchedulers
-import rx.schedulers.Schedulers
 
 /**
  * ダブルタップでのロックBroadcastReceiver
@@ -16,29 +18,21 @@ import rx.schedulers.Schedulers
  * @author bvlion
  */
 class DoubleTapBroadCastReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent?) {
-        // ダブルタップと認識したらロックする
-        if (context.getSharedPreferences(context.packageName, Activity.MODE_PRIVATE).getBoolean(Util.SLEEP_DOUBLE_TAP_COUNT_PREF, false)) {
-            val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-            dpm.lockNow()
-        } else {
-            Observable.create<Unit> {
-                Thread.sleep(1000)
-                it.onNext(Unit)
-            }
-                .subscribeOn(Schedulers.newThread())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe {
-                    saveDoubleTapPref(context, false)
-                }
+  override fun onReceive(context: Context, intent: Intent?) {
+    // ダブルタップと認識したらロックする
+    Util.tapCount++
+    if (Util.tapCount >= 2) {
+      val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+      dpm.lockNow()
+    } else {
+      CoroutineScope(Dispatchers.Main).launch {
+        flow {
+          delay(1000)
+          emit(0)
+        }.collect {
+          Util.tapCount = it
         }
-        saveDoubleTapPref(context, true)
+      }
     }
-
-    private fun saveDoubleTapPref(context: Context, isDoubleTap: Boolean) =
-        context.getSharedPreferences(context.packageName, Activity.MODE_PRIVATE)
-            .edit().apply {
-                putBoolean(Util.SLEEP_DOUBLE_TAP_COUNT_PREF, isDoubleTap)
-                apply()
-            }
+  }
 }

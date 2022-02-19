@@ -71,8 +71,6 @@ dependencies {
     // design
     implementation 'androidx.appcompat:appcompat:1.4.0'
     implementation 'com.google.android.material:material:1.4.0'
-    // rx
-    implementation 'io.reactivex:rxandroid:1.2.1'
     // data store
     implementation('androidx.datastore:datastore-preferences:1.0.0')
     // lifecycle
